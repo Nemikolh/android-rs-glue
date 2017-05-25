@@ -80,8 +80,8 @@ pub fn build(workspace: &Workspace, config: &Config) -> Result<BuildResult, Box<
         };
 
         // Create android cpu abi name
-        let abi = if build_target.starts_with("arm") { "armeabi" }
-                  // TODO: armeabi-v7a
+        let abi = if build_target.starts_with("armv7") { "armeabi-v7a" }
+                  else if build_target.starts_with("arm") { "armeabi" }
                   else if build_target.starts_with("aarch64") { "arm64-v8a" }
                   else if build_target.starts_with("i") { "x86" }
                   else if build_target.starts_with("x86_64") { "x86_64" }
@@ -90,63 +90,63 @@ pub fn build(workspace: &Workspace, config: &Config) -> Result<BuildResult, Box<
                   else { panic!("Unknown or incompatible build target: {}", build_target) };
 
         // Compiling android_native_app_glue.c
-        {
-            workspace.config().shell().say("Compiling android_native_app_glue.c", 10);
-            let mut cmd = process(&gcc_path);
-            cmd.arg(config.ndk_path.join("sources/android/native_app_glue/android_native_app_glue.c"))
-               .arg("-c");
-            if config.release {
-                cmd.arg("-O3");
-            }
-            cmd.arg("-o").arg(build_target_dir.join("android_native_app_glue.o"))
-               .arg("--sysroot").arg(&gcc_sysroot)
-               .exec()?;
-        }
+        // {
+        //     workspace.config().shell().say("Compiling android_native_app_glue.c", 10);
+        //     let mut cmd = process(&gcc_path);
+        //     cmd.arg(config.ndk_path.join("sources/android/native_app_glue/android_native_app_glue.c"))
+        //        .arg("-c");
+        //     if config.release {
+        //         cmd.arg("-O3");
+        //     }
+        //     cmd.arg("-o").arg(build_target_dir.join("android_native_app_glue.o"))
+        //        .arg("--sysroot").arg(&gcc_sysroot)
+        //        .exec()?;
+        // }
 
         // Compiling injected-glue
-        let injected_glue_lib = {
-            workspace.config().shell().say("Compiling injected-glue", 10);
-            let mut cmd = workspace.config().rustc()?.process();
-            cmd.arg(android_artifacts_dir.join("injected-glue/lib.rs"))
-               .arg("--crate-type").arg("rlib");
-            if config.release {
-                cmd.arg("-C")
-                   .arg("opt-level=3");
-            }
-            cmd.arg("--crate-name").arg("cargo_apk_injected_glue")
-               .arg("--target").arg(build_target)
-               .arg("--out-dir").arg(&build_target_dir);
+        // let injected_glue_lib = {
+        //     workspace.config().shell().say("Compiling injected-glue", 10);
+        //     let mut cmd = workspace.config().rustc()?.process();
+        //     cmd.arg(android_artifacts_dir.join("injected-glue/lib.rs"))
+        //        .arg("--crate-type").arg("rlib");
+        //     if config.release {
+        //         cmd.arg("-C")
+        //            .arg("opt-level=3");
+        //     }
+        //     cmd.arg("--crate-name").arg("cargo_apk_injected_glue")
+        //        .arg("--target").arg(build_target)
+        //        .arg("--out-dir").arg(&build_target_dir);
 
-            cmd.exec()?;
+        //     cmd.exec()?;
 
-            let stdout = cmd.arg("--print").arg("file-names")
-                            .exec_with_output()?;
-            let stdout = String::from_utf8(stdout.stdout).unwrap();
+        //     let stdout = cmd.arg("--print").arg("file-names")
+        //                     .exec_with_output()?;
+        //     let stdout = String::from_utf8(stdout.stdout).unwrap();
 
-            build_target_dir.join(stdout.lines().next().unwrap())
-        };
+        //     build_target_dir.join(stdout.lines().next().unwrap())
+        // };
 
         // Compiling glue_obj.rs
-        {
-            let mut file = File::create(build_target_dir.join("glue_obj.rs")).unwrap();
-            file.write_all(&include_bytes!("../../glue_obj.rs")[..]).unwrap();
-        }
-        
-        {
-            workspace.config().shell().say("Compiling glue_obj", 10);
-            let mut cmd = workspace.config().rustc()?.process();
-            cmd.arg(build_target_dir.join("glue_obj.rs"))
-               .arg("--crate-type").arg("staticlib");
-            if config.release {
-                cmd.arg("-C")
-                   .arg("opt-level=3");
-            }
-            cmd.arg("--target").arg(build_target)
-               .arg("--extern").arg(format!("cargo_apk_injected_glue={}", injected_glue_lib.to_string_lossy()))
-               .arg("--emit").arg("obj")
-               .arg("-o").arg(build_target_dir.join("glue_obj.o"))
-               .exec()?;
-        }
+        // {
+        //     let mut file = File::create(build_target_dir.join("glue_obj.rs")).unwrap();
+        //     file.write_all(&include_bytes!("../../glue_obj.rs")[..]).unwrap();
+        // }
+
+        // {
+        //     workspace.config().shell().say("Compiling glue_obj", 10);
+        //     let mut cmd = workspace.config().rustc()?.process();
+        //     cmd.arg(build_target_dir.join("glue_obj.rs"))
+        //        .arg("--crate-type").arg("staticlib");
+        //     if config.release {
+        //         cmd.arg("-C")
+        //            .arg("opt-level=3");
+        //     }
+        //     cmd.arg("--target").arg(build_target)
+        //        .arg("--extern").arg(format!("cargo_apk_injected_glue={}", injected_glue_lib.to_string_lossy()))
+        //        .arg("--emit").arg("obj")
+        //        .arg("-o").arg(build_target_dir.join("glue_obj.o"))
+        //        .exec()?;
+        // }
 
         // Directory where we will put the native libraries for ant to pick them up.
         let native_libraries_dir = android_artifacts_dir.join(format!("build/libs/{}", abi));
@@ -171,13 +171,14 @@ pub fn build(workspace: &Workspace, config: &Config) -> Result<BuildResult, Box<
             cmd.arg("--")
                 .arg("-C").arg(format!("linker={}", android_artifacts_dir.join(if cfg!(target_os = "windows") { "linker_exe.exe" } else { "linker_exe" })
                                                                         .to_string_lossy()))
-                .arg("--extern").arg(format!("cargo_apk_injected_glue={}", injected_glue_lib.to_string_lossy()))
+                // .arg("--extern").arg(format!("cargo_apk_injected_glue={}", injected_glue_lib.to_string_lossy()))
                 .env("CARGO_APK_GCC", gcc_path.as_os_str())
                 .env("CARGO_APK_GCC_SYSROOT", gcc_sysroot.as_os_str())
-                .env("CARGO_APK_NATIVE_APP_GLUE", build_target_dir.join("android_native_app_glue.o"))
-                .env("CARGO_APK_GLUE_OBJ", build_target_dir.join("glue_obj.o"))
-                .env("CARGO_APK_GLUE_LIB", injected_glue_lib)
-                .env("CARGO_APK_LINKER_OUTPUT", native_libraries_dir.join("libmain.so"))
+                // .env("CARGO_APK_NATIVE_APP_GLUE", build_target_dir.join("android_native_app_glue.o"))
+                // .env("CARGO_APK_GLUE_OBJ", build_target_dir.join("glue_obj.o"))
+                // .env("CARGO_APK_GLUE_LIB", injected_glue_lib)
+                // TODO: Make that name configurable.
+                .env("CARGO_APK_LINKER_OUTPUT", native_libraries_dir.join("libscoutagent.so"))
                 .env("CARGO_APK_LIB_PATHS_OUTPUT", build_target_dir.join("lib_paths"))
                 .env("CARGO_APK_LIBS_OUTPUT", build_target_dir.join("libs"))
                 .env("TARGET_CC", gcc_path.as_os_str())          // Used by gcc-rs
@@ -237,18 +238,18 @@ pub fn build(workspace: &Workspace, config: &Config) -> Result<BuildResult, Box<
     }
 
     // Write the Java source
-    build_java_src(workspace, &android_artifacts_dir, &config, &abi_libs);
+    // build_java_src(workspace, &android_artifacts_dir, &config, &abi_libs);
 
     // Invoking `ant` from within `android-artifacts` in order to compile the project.
-    workspace.config().shell().say("Invoking ant", 10);
-    let mut cmd = process(&config.ant_command);
-    if config.release {
-        cmd.arg("release");
-    } else {
-        cmd.arg("debug");
-    }
-    cmd.cwd(android_artifacts_dir.join("build"))
-       .exec()?;
+    // workspace.config().shell().say("Invoking ant", 10);
+    // let mut cmd = process(&config.ant_command);
+    // if config.release {
+    //     cmd.arg("release");
+    // } else {
+    //     cmd.arg("debug");
+    // }
+    // cmd.cwd(android_artifacts_dir.join("build"))
+    //    .exec()?;
 
     Ok(BuildResult {
         apk_path: android_artifacts_dir.join(format!("build/bin/{}-debug.apk", config.project_name)),
@@ -271,12 +272,12 @@ fn build_android_artifacts_dir(workspace: &Workspace, path: &Path, config: &Conf
     }
 
     build_linker(workspace, path)?;
-    build_manifest(workspace, path, config)?;
-    build_build_xml(workspace, path, config)?;
+    // build_manifest(workspace, path, config)?;
+    // build_build_xml(workspace, path, config)?;
     build_local_properties(workspace, path, config)?;
     build_project_properties(workspace, path, config)?;
-    build_assets(workspace, path, config)?;
-    build_res(workspace, path, config)?;
+    // build_assets(workspace, path, config)?;
+    // build_res(workspace, path, config)?;
 
     for target in config.build_targets.iter() {
         if fs::metadata(path.join(target)).is_err() {

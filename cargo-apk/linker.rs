@@ -16,9 +16,9 @@ fn main() {
     // Pick parameters from env vars.
     let gcc = env::var("CARGO_APK_GCC").unwrap();
     let gcc_sysroot = env::var("CARGO_APK_GCC_SYSROOT").unwrap();
-    let native_app_glue = env::var("CARGO_APK_NATIVE_APP_GLUE").unwrap();
-    let glue_obj = env::var("CARGO_APK_GLUE_OBJ").unwrap();
-    let glue_lib = env::var("CARGO_APK_GLUE_LIB").unwrap();
+    //let native_app_glue = env::var("CARGO_APK_NATIVE_APP_GLUE").unwrap();
+    //let glue_obj = env::var("CARGO_APK_GLUE_OBJ").unwrap();
+    //let glue_lib = env::var("CARGO_APK_GLUE_LIB").unwrap();
     let linker_output = env::var("CARGO_APK_LINKER_OUTPUT").unwrap();
     let lib_paths_output = env::var("CARGO_APK_LIB_PATHS_OUTPUT").unwrap();
     let libs_output = env::var("CARGO_APK_LIBS_OUTPUT").unwrap();
@@ -39,9 +39,9 @@ fn main() {
     // Execute the real linker.
     if Command::new(Path::new(&gcc))
         .args(&*passthrough)
-        .arg(native_app_glue)
-        .arg(glue_obj)
-        .arg(glue_lib)
+        // .arg(native_app_glue)
+        // .arg(glue_obj)
+        // .arg(glue_lib)
         .arg("-llog").arg("-landroid")      // these two libraries are used by the injected-glue
         .arg("--sysroot").arg(gcc_sysroot)
         .arg("-o").arg(linker_output)
